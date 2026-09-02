@@ -24,7 +24,7 @@
   <section class="panel"><div class="label">Đối chiếu Gate — Stage — PD</div><div id="reconciliation"></div></section>
   <section class="panel"><div class="label">Phân cấp xử lý</div><div id="escalation"></div></section>
 </div>
-<div class="section">Tiến độ và điểm cần xử lý</div><div class="cols"><section class="panel"><div class="label">Bước kiểm soát hiện tại</div><div class="funnel" id="stages"></div><div class="stageDetailTools"><button id="stageDetailToggle" type="button" disabled>Xem chi tiết Shop theo Stage</button><span id="stageDetailCount" class="muted">Chọn một Stage để xem chi tiết</span></div><div id="stageDetail" class="stageDetail" hidden></div></section><section class="panel"><div class="label">Top điểm cần xử lý</div><div id="exceptions"></div></section></div><div class="section">Biểu đồ điều hành nâng cao</div><div class="v4grid">
+<div class="section">Tiến độ và điểm cần xử lý</div><div class="cols"><section class="panel"><div class="label">Bước kiểm soát hiện tại</div><div class="funnel" id="stages"></div><div class="stageDetailTools"><button id="stageDetailToggle" type="button" disabled>Xem chi tiết Shop theo Stage</button><button id="stageDetailCopy" type="button" disabled aria-label="Copy bảng chi tiết">📋 Copy bảng</button><span id="stageDetailCount" class="muted">Chọn một Stage để xem chi tiết</span></div><div id="stageDetail" class="stageDetail" hidden></div></section><section class="panel"><div class="label">Top điểm cần xử lý</div><div id="exceptions"></div></section></div><div class="section">Biểu đồ điều hành nâng cao</div><div class="v4grid">
 <section class="panel"><div class="v4title">Cơ cấu tiến độ theo Khu vực</div><div class="v4sub">Tỷ trọng shop theo nhóm stage, chỉ tính Đang triển khai Onboard</div><div id="zoneChart"></div><div class="legend"><span><i style="background:#2774c7"></i>Tiếp nhận/HSTK</span><span><i style="background:#0d9488"></i>Thiết kế</span><span><i style="background:#c47a10"></i>Thi công</span><span><i style="background:#b83228"></i>Defect</span></div></section>
 <section class="panel"><div class="v4title">Mức độ sẵn sàng theo Khu vực</div><div class="v4sub">Xếp hạng theo số căn đã tiến đến các bước cuối</div><div id="zoneRank"></div></section>
 <section class="panel"><div class="v4title">Bản đồ nhiệt kết quả thẩm định</div><div class="v4sub">Số căn theo trạng thái từng bộ môn trong phạm vi lọc</div><div id="heatmap"></div></section>
@@ -117,15 +117,16 @@ fitoutRender();
 </script>
 
 <script>
-const detailToggle=document.getElementById('stageDetailToggle'),detailCount=document.getElementById('stageDetailCount'),detailPanel=document.getElementById('stageDetail');
+const detailToggle=document.getElementById('stageDetailToggle'),detailCopy=document.getElementById('stageDetailCopy'),detailCount=document.getElementById('stageDetailCount'),detailPanel=document.getElementById('stageDetail');
 function stageDetailRender(){
  const selected=q(stage.value),rows=filt();
- if(!selected){detailToggle.disabled=true;detailCount.textContent='Chọn một Stage để xem chi tiết';detailPanel.hidden=true;detailToggle.textContent='Xem chi tiết Shop theo Stage';return}
- detailToggle.disabled=false;detailCount.textContent=rows.length+' shop trong Stage đang chọn'+(zone.value||owner.value?' · đã áp dụng bộ lọc':'');
+ if(!selected){detailToggle.disabled=true;detailCopy.disabled=true;detailCount.textContent='Chọn một Stage để xem chi tiết';detailPanel.hidden=true;detailToggle.textContent='Xem chi tiết Shop theo Stage';return}
+ detailToggle.disabled=false;detailCopy.disabled=detailPanel.hidden||!rows.length;detailCount.textContent=rows.length+' shop trong Stage đang chọn'+(zone.value||owner.value?' · đã áp dụng bộ lọc':'');
  const body=rows.slice().sort((a,b)=>q(a[C.id]).localeCompare(q(b[C.id]),'vi')).map(r=>'<tr><td><b>'+esc(r[C.id])+'</b></td><td>'+esc(r[C.z])+'</td><td>'+esc(r['Sub Zone'])+'</td><td>'+esc(r[C.o])+'</td><td>'+esc(r[C.g])+'</td><td>'+esc(r[C.ac])+'</td></tr>').join('');
  detailPanel.innerHTML='<table><thead><tr><th>Shop ID</th><th>Zone</th><th>Subzone</th><th>CSKH</th><th>Gate</th><th>Hành động tiếp theo</th></tr></thead><tbody>'+(body||'<tr><td colspan="6">Không có shop trong phạm vi lọc</td></tr>')+'</tbody></table>';
 }
-detailToggle.addEventListener('click',()=>{if(!stage.value)return;detailPanel.hidden=!detailPanel.hidden;detailToggle.textContent=detailPanel.hidden?'Xem chi tiết Shop theo Stage':'Ẩn chi tiết Shop';});
+detailToggle.addEventListener('click',()=>{if(!stage.value)return;detailPanel.hidden=!detailPanel.hidden;detailCopy.disabled=detailPanel.hidden;detailToggle.textContent=detailPanel.hidden?'Xem chi tiết Shop theo Stage':'Ẩn chi tiết Shop';});
+detailCopy.addEventListener('click',async()=>{if(detailCopy.disabled)return;const rows=filt().slice().sort((a,b)=>q(a[C.id]).localeCompare(q(b[C.id]),'vi'));const lines=[['Shop ID','Zone','Subzone','CSKH','Gate','Hành động tiếp theo'],...rows.map(r=>[r[C.id],r[C.z],r['Sub Zone'],r[C.o],r[C.g],r[C.ac]])].map(row=>row.map(v=>q(v).replace(/[\t\r\n]+/g,' ')).join('\t')).join('\n');try{await navigator.clipboard.writeText(lines);detailCopy.textContent='✓ Đã copy';setTimeout(()=>{detailCopy.textContent='📋 Copy bảng'},1600)}catch(e){const ta=document.createElement('textarea');ta.value=lines;document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();detailCopy.textContent=ok?'✓ Đã copy':'Copy lỗi';setTimeout(()=>{detailCopy.textContent='📋 Copy bảng'},1600)}});
 ['zone','owner','stage'].forEach(id=>document.getElementById(id).addEventListener('change',stageDetailRender));
 [...stage.options].forEach(o=>{if(o.value)o.textContent=o.value+' ('+R.filter(r=>q(r[C.s])===o.value).length+')'});
 stageDetailRender();
